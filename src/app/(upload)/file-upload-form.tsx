@@ -11,34 +11,39 @@ export default function FileUploadForm() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  if (!file) {
-    setUploadStatus("Please select a file to upload.");
-    return;
-  }
+    e.preventDefault();
+    if (!file) {
+      setUploadStatus("Please select a file to upload.");
+      return;
+    }
 
-  setUploading(true);
-  setUploadStatus(null);
+    setUploading(true);
+    setUploadStatus(null);
 
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("secretKey", key);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("secretKey", key);
 
-    const result = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-    setUploadStatus(result.statusText);
-  } catch (error) {
-    console.error("Upload error:", error); // ✅ Logs the error
-    setUploadStatus("An error occurred during upload. Please try again.");
-  } finally {
-    setUploading(false);
-  }
-};
+      const data = await response.json(); // ✅ Properly parse JSON response
 
+      if (response.ok) {
+        setUploadStatus("File uploaded successfully! 🎉");
+      } else {
+        setUploadStatus(data.message || "Failed to upload file.");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadStatus("An error occurred during upload. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,7 +73,7 @@ export default function FileUploadForm() {
       {uploadStatus && (
         <p
           className={`text-sm ${
-            uploadStatus.includes("error") ? "text-red-500" : "text-green-500"
+            uploadStatus.includes("successfully") ? "text-green-500" : "text-red-500"
           }`}
         >
           {uploadStatus}
