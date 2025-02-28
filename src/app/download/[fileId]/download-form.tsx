@@ -20,10 +20,13 @@ export function DownloadForm({ fileId }: { fileId: string }) {
       const data = new FormData();
       data.set("fileName", fileId);
       data.set("secretKey", secretKey);
+
       const res = await fetch("/api/download", {
         method: "POST",
         body: data,
       });
+
+      if (!res.ok) throw new Error(res.statusText);
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -35,11 +38,11 @@ export function DownloadForm({ fileId }: { fileId: string }) {
       link.click();
       window.URL.revokeObjectURL(url);
 
-      if (res.status != 200) throw new Error(res.statusText);
+      // ✅ Reset secret key field after successful download
+      setSecretKey("");
     } catch (err) {
-  console.error("Download error:", err); // ✅ Logs the error
-  setError("An unexpected error occurred. Please try again.");
-
+      console.error("Download error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
