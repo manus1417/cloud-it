@@ -30,10 +30,13 @@ export default function FileUploadForm() {
         body: formData,
       });
 
-      const data = await response.json(); // ✅ Properly parse JSON response
+      const data = await response.json();
 
       if (response.ok) {
         setUploadStatus("File uploaded successfully! 🎉");
+        setFile(null); // ✅ Reset file input
+        setKey(""); // ✅ Reset password input
+        (document.getElementById("fileInput") as HTMLInputElement).value = ""; // ✅ Clear file input field
       } else {
         setUploadStatus(data.message || "Failed to upload file.");
       }
@@ -49,6 +52,7 @@ export default function FileUploadForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Input
+          id="fileInput"
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
