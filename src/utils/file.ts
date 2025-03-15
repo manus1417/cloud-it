@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import { merge, split } from "@filego/js";
+import { db } from "../utils/db";
 
 interface FileChunk {
   index: number;
@@ -8,70 +9,64 @@ interface FileChunk {
 
 const algorithm = "aes-256-ctr";
 
+// Split a file into chunks
 export const fragmentFile = async (file: Blob, chunkSize: number) => {
   const fragments = await split({ file, chunkSize });
   return fragments.chunks;
 };
 
+// Encrypt a file fragment
 export const encryptFragment = async (fragment: Blob, key: string) => {
-  // Hash the key
-  key = crypto
-    .createHash("sha256")
-    .update(String(key))
-    .digest("base64")
-    .substring(0, 32);
-
-  // Create an initialization vector (IV)
+  key = crypto.createHash("sha256").update(String(key)).digest("base64").substring(0, 32);
   const iv = crypto.randomBytes(16);
-
-  // Create a new cipher using the algorithm, key and iv
   const cipher = crypto.createCipheriv(algorithm, key, iv);
 
-  // Create the updated buffer
   const fragmentBuffer = await fragment.arrayBuffer();
-  const res = Buffer.concat([
+  const encryptedBuffer = Buffer.concat([
     iv,
     cipher.update(Buffer.from(fragmentBuffer)),
     cipher.final(),
   ]);
 
-  return res;
+  return encryptedBuffer;
 };
 
+// Decrypt a file fragment
 export const decryptFragment = async (fragment: Blob, key: string) => {
-  // Hash the key
-  key = crypto
-    .createHash("sha256")
-    .update(String(key))
-    .digest("base64")
-    .substring(0, 32);
-
-  // Create a buffer from the fragment
+  key = crypto.createHash("sha256").update(String(key)).digest("base64").substring(0, 32);
+  
   const fragmentBuffer = await fragment.arrayBuffer();
   const buffer = Buffer.from(fragmentBuffer);
-
-  // Extract the IV from the buffer
+  
   const iv = buffer.subarray(0, 16);
-
-  // Create a decipher using the algorithm, key and iv
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
 
-  // Decrypt the buffer
-  const decrypted = Buffer.concat([
-    decipher.update(buffer.subarray(16)),
-    decipher.final(),
-  ]);
-
+  const decrypted = Buffer.concat([decipher.update(buffer.subarray(16)), decipher.final()]);
   return decrypted;
 };
 
-export const mergeFragments = async (fragments: Blob[] | File[]) => {
-  // Transform Uint8Array[] to FileChunk[]
-  const fileChunks: FileChunk[] = fragments.map((uint8Array, index) => ({
+// Merge file fragments back into a file
+export const mergeFragments = async (fragments: Blob[]) => {
+  const fileChunks: FileChunk[] = fragments.map((blob, index) => ({
     index,
-    blob: new Blob([uint8Array]),
+    blob,
   }));
 
-  const merged = await merge({ chunks: fileChunks }); // Pass FileChunk[] to merge
+  const merged = await merge({ chunks: fileChunks });
   return merged.blob;
+};
+
+// Store retrieve fragment URLs in the database
+export const storeRetrieveFragmentUrls = async (fileId: string, fragmentUrls: string[]) => {
+  try {
+    await db.file.update({
+      where: { id: fileId },
+      data: { retrieveFragments: { set: fragmentUrls } }, 
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error storing retrieve fragment URLs:", error);
+    return { success: false, error };
+  }
 };
