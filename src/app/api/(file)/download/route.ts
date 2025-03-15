@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Fetch the file record, including retrieveFragments
     const fileRecord = await db.file.findFirst({
       where: { id: fileId },
     });
@@ -37,7 +38,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { fragments: fragmentLinks, key } = fileRecord;
+    const { retrieveFragments, key, name } = fileRecord;
+
+    if (!retrieveFragments || retrieveFragments.length === 0) {
+      console.log("No retrieve fragments found in database");
+      return NextResponse.json(
+        { success: false, message: "Retrieve fragments missing" },
+        { status: 400 }
+      );
+    }
 
     const verifyKey = await verify(key, secretKey);
     if (!verifyKey) {
@@ -50,17 +59,20 @@ export async function POST(req: NextRequest) {
 
     // Fetch and decrypt each fragment
     const fragments = await Promise.all(
-      fragmentLinks.map(async (fragmentLink) => {
-        const res = await fetch(fragmentLink);
-        if (!res.ok) throw new Error(`Failed to fetch fragment: ${fragmentLink}`);
-        return res.blob();
+      retrieveFragments.map(async (fragmentUrl) => {
+        try {
+          const res = await fetch(fragmentUrl);
+          if (!res.ok) throw new Error(`Failed to fetch fragment: ${fragmentUrl}`);
+          return res.blob();
+        } catch (error) {
+          console.error(error);
+          throw new Error(`Error fetching fragment: ${fragmentUrl}`);
+        }
       })
     );
 
     const decryptedFragments = await Promise.all(
-      fragments.map(async (fragment) => {
-        return new Blob([await decryptFragment(fragment, secretKey)]);
-      })
+      fragments.map(async (fragment) => new Blob([await decryptFragment(fragment, secretKey)]))
     );
 
     const file = await mergeFragments(decryptedFragments);
@@ -69,8 +81,8 @@ export async function POST(req: NextRequest) {
     return new Response(fileData, {
       status: 200,
       headers: {
-        "Content-Type": "image/jpeg",
-        "Content-Disposition": 'attachment; filename="image.jpg"',
+        "Content-Type": "application/octet-stream", // Dynamic file type
+        "Content-Disposition": `attachment; filename="${name}"`, // Use original filename
       },
     });
 
