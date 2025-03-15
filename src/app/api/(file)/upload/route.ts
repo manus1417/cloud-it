@@ -46,9 +46,13 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.all(uploadPromises);
 
-    // Check for any upload errors
+    // Extract URLs and check for errors
+    const fragmentURLs = results
+      .map((result) => result?.url)
+      .filter((url): url is string => url !== undefined);
+    
     const errors = results.filter((result) => result && !result.success);
-    if (errors.length > 0) {
+    if (errors.length > 0 || fragmentURLs.length === 0) {
       return NextResponse.json(
         { success: false, message: "Error uploading fragments", errors },
         { status: 500 }
@@ -62,25 +66,20 @@ export async function POST(req: NextRequest) {
         name: file.name,
         key,
         user: userId as string,
-        fragments: results
-          .map((result) => result?.url)
-          .filter((url): url is string => url !== undefined),
+        fragments: fragmentURLs,
+        retrieveFragments: fragmentURLs, //Public URLs for retrieval
       },
     });
 
     return NextResponse.json(
       {
         message: "File uploaded and fragmented successfully",
-        fragmentURLs: results.map((result) => result?.url),
+        fragmentURLs,
       },
       { status: 200 }
     );
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(error.message);
-    } else {
-      console.error("An unknown error occurred");
-    }
+    console.error(error instanceof Error ? error.message : "An unknown error occurred");
 
     return NextResponse.json(
       { success: false, message: "An error occurred" },
