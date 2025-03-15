@@ -3,22 +3,26 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 
 export default function FileUploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [key, setKey] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) {
-      setUploadStatus("Please select a file to upload.");
+      setUploadStatus("❌ Please select a file to upload.");
+      setIsError(true);
       return;
     }
 
     setUploading(true);
     setUploadStatus(null);
+    setIsError(false);
 
     try {
       const formData = new FormData();
@@ -33,16 +37,18 @@ export default function FileUploadForm() {
       const data = await response.json();
 
       if (response.ok) {
-        setUploadStatus("File uploaded successfully! 🎉");
-        setFile(null); // ✅ Reset file input
-        setKey(""); // ✅ Reset password input
-        (document.getElementById("fileInput") as HTMLInputElement).value = ""; // ✅ Clear file input field
+        setUploadStatus("✅ File uploaded successfully!");
+        setFile(null); 
+        setKey(""); 
+        (document.getElementById("fileInput") as HTMLInputElement).value = ""; 
       } else {
-        setUploadStatus(data.message || "Failed to upload file.");
+        setUploadStatus(data.message || "❌ Failed to upload file.");
+        setIsError(true);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      setUploadStatus("An error occurred during upload. Please try again.");
+      setUploadStatus("❌ An error occurred during upload. Please try again.");
+      setIsError(true);
     } finally {
       setUploading(false);
     }
@@ -74,14 +80,15 @@ export default function FileUploadForm() {
       <Button type="submit" disabled={uploading} className="w-full">
         {uploading ? "Uploading..." : "Upload File"}
       </Button>
+
       {uploadStatus && (
-        <p
-          className={`text-sm ${
-            uploadStatus.includes("successfully") ? "text-green-500" : "text-red-500"
-          }`}
-        >
-          {uploadStatus}
-        </p>
+        isError ? (
+          <Alert variant="destructive"> {/*  Show error in alert */}
+            <AlertDescription>{uploadStatus}</AlertDescription>
+          </Alert>
+        ) : (
+          <p className="text-green-500 text-sm">{uploadStatus}</p> //Success message in green text
+        )
       )}
     </form>
   );
